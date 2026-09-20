@@ -50,6 +50,29 @@ class AlgorithmArgs(argparse.Namespace):
     @property
     def ts(self) -> np.ndarray:
         print(f"Loading: {self.dataInput}")
+        dataset, data_columns, anomaly_columns = self._read_dataset()
+
+        self._select_input_and_target_channels(data_columns)
+
+        all_used_channels = list(
+            dict.fromkeys(self.customParameters.input_channels + self.customParameters.target_channels))
+        all_used_anomaly_columns = [f"is_anomaly_{ch}" for ch in all_used_channels]
+
+        dataset = self._unravel_global_annotation(dataset, anomaly_columns, all_used_anomaly_columns)
+        dataset = dataset.loc[:, all_used_channels + all_used_anomaly_columns]
+
+        data_columns = dataset.columns.tolist()[:len(all_used_channels)]
+
+        self._map_channels_to_indices(data_columns)
+
+        if self.executionType == "train":
+            # Check if data should and can be splitted into train/val at some special timestamp
+            return self._prepare_training_data(dataset, all_used_anomaly_columns)
+        else:
+            dataset = np.expand_dims(dataset.values[:, :-len(all_used_anomaly_columns)], axis=0).astype(np.float32)
+            return dataset, None, None, None
+
+    def _read_dataset(self):
         columns = pd.read_csv(self.dataInput, index_col="timestamp", nrows=0).columns.tolist()
         anomaly_columns = [x for x in columns if x.startswith("is_anomaly")]
         data_columns = columns[:-len(anomaly_columns)]
@@ -58,94 +81,109 @@ class AlgorithmArgs(argparse.Namespace):
         dtypes.update({col: np.uint8 for col in anomaly_columns})
         dataset = pd.read_csv(self.dataInput, index_col="timestamp", parse_dates=True, dtype=dtypes)
 
-        if self.customParameters.input_channels is None or len(set(self.customParameters.input_channels).intersection(data_columns)) == 0:
-            self.customParameters.input_channels = data_columns
-            print(f"Input channels not given or not present in the data, selecting all the channels: {self.customParameters.input_channels}")
+        return dataset, data_columns, anomaly_columns
+
+    def _select_input_and_target_channels(self, data_columns):
+        self.customParameters.input_channels = self.get_valid_channels(
+            self.customParameters.input_channels, data_columns, sort=True
+        )
+        self.customParameters.target_channels = self.get_valid_channels(
+            self.customParameters.target_channels, data_columns, sort=True
+        )
+
+    @staticmethod
+    def get_valid_channels(raw_channels: List[str], data_cols: List[str], sort: bool = False) -> List[str]:
+        if not raw_channels:
+            print(f"No channels provided. Using all data columns: {data_cols}")
+            valid_channels = data_cols
         else:
-            self.customParameters.input_channels = [x for x in self.customParameters.input_channels if x in data_columns]
+            valid_channels = list(dict.fromkeys([ch for ch in raw_channels if ch in data_cols]))
+            if not valid_channels:
+                print("No valid channels found in dataset, falling back to all data columns.")
+                valid_channels = data_cols
 
-        if self.customParameters.target_channels is None or len(set(self.customParameters.target_channels).intersection(data_columns)) == 0:
-            self.customParameters.target_channels = data_columns
-            print(f"Target channels not given or not present in the data, selecting all the channels: {self.customParameters.target_channels}")
-        else:
-            self.customParameters.target_channels = [x for x in self.customParameters.target_channels if x in data_columns]
+        if sort:
+            valid_channels.sort()
 
-        # Remove unused columns from dataset
-        all_used_channels = [x for x in data_columns if x in set(self.customParameters.input_channels + self.customParameters.target_channels)]
-        all_used_anomaly_columns = [f"is_anomaly_{channel}" for channel in all_used_channels]
-        if len(anomaly_columns) == 1 and anomaly_columns[0] == "is_anomaly":  # Handle datasets with only one global is_anomaly column
-            for c in all_used_anomaly_columns:
-                dataset[c] = dataset["is_anomaly"]
-            dataset = dataset.drop(columns="is_anomaly")
-        dataset = dataset.loc[:, all_used_channels + all_used_anomaly_columns]
-        data_columns = dataset.columns.tolist()[:len(all_used_channels)]
+        return valid_channels
 
-        # Change channel names to index for further processing
-        self.customParameters.input_channel_indices = [data_columns.index(x) for x in self.customParameters.input_channels]
-        self.customParameters.target_channel_indices = [data_columns.index(x) for x in self.customParameters.target_channels]
-
-        if self.executionType == "train":
-            # Check if data should and can be splitted into train/val at some special timestamp
-            validation_date_split = self.customParameters.validation_date_split
-            if validation_date_split is not None:
-                try:
-                    validation_date_split = parse_date(validation_date_split)
-                    if validation_date_split < dataset.index[0] or validation_date_split > dataset.index[-1]:
-                        print(f"Cannot use validation_date_split '{validation_date_split}' because it is outside the data range")
-                        validation_date_split = None
-                except:
-                    print(f"Cannot use validation_date_split '{validation_date_split}' because timestamp is not datetime")
-                    validation_date_split = None
-
-            # Find start and end points of fragments without anomalies
-            target_anomaly_column = "is_anomaly"
-            dataset[target_anomaly_column] = 0
-            for channel in self.customParameters.target_channels:
-                dataset.loc[dataset[f"is_anomaly_{channel}"] > 0, f"is_anomaly_{channel}"] = 1
-                dataset[target_anomaly_column] |= dataset[f"is_anomaly_{channel}"]
-
+    @staticmethod
+    def _unravel_global_annotation(dataset: pd.DataFrame,
+                                   original_anomaly_cols: List[str],
+                                   all_used_anomaly_columns: List[str]) -> pd.DataFrame:
+        if len(original_anomaly_cols) == 1 and original_anomaly_cols[0] == "is_anomaly":  # Handle datasets with only one global is_anomaly column
             for col in all_used_anomaly_columns:
-                dataset.drop(columns=[col], inplace=True)
+                dataset[col] = dataset["is_anomaly"]
+            dataset = dataset.drop(columns="is_anomaly")
+        return dataset
 
-            labels_groups = dataset.groupby(
-                (dataset[target_anomaly_column].shift() != dataset[target_anomaly_column]).cumsum()
-            )
-            start_end_points = [
-                (group[0], group[-1])
-                for group in labels_groups.groups.values()
-                if dataset.loc[group[0], target_anomaly_column] == 0
-            ]
-            dataset.drop(columns=[target_anomaly_column], inplace=True)  # at this point label columns are no longer needed
+    def _map_channels_to_indices(self, data_columns):
+        # Change channel names to index for further processing
+        self.customParameters.input_channel_indices = [data_columns.index(x) for x in
+                                                       self.customParameters.input_channels]
+        self.customParameters.target_channel_indices = [data_columns.index(x) for x in
+                                                        self.customParameters.target_channels]
 
-            # Binary channel has only two unique integer values
-            binary_channels_mask = [np.sum(dataset.values[..., i].astype(np.int64) - dataset.values[..., i]) == 0 and
-                                    len(np.unique(dataset.values[..., i])) == 2
-                                    for i in range(dataset.values.shape[-1])]
-            channels_minimums = np.min(dataset.values, axis=0)
-            channels_maximums = np.max(dataset.values, axis=0)
+    def _prepare_training_data(self, dataset, anomaly_columns):
+        # Find start and end points of fragments without anomalies
+        target_anomaly_column = "is_anomaly"
+        dataset[target_anomaly_column] = 0
 
-            if validation_date_split is None:
-                dataset = np.array([dataset.loc[start:end].values for start, end in start_end_points], dtype=object)
-            else:
-                train_data = []
-                val_data = []
-                for start_date, end_date in start_end_points:
-                    if start_date < validation_date_split and end_date < validation_date_split:
-                        train_data.append(dataset[start_date:end_date].values)
-                    elif start_date > validation_date_split and end_date > validation_date_split:
-                        val_data.append(dataset[start_date:end_date].values)
-                    else:
-                        train_data.append(dataset[start_date:validation_date_split].values)
-                        val_data.append(dataset[validation_date_split:end_date].values)
-                dataset = [np.array(train_data), np.array(val_data)]
+        for channel in self.customParameters.target_channels:
+            dataset.loc[dataset[f"is_anomaly_{channel}"] > 0, f"is_anomaly_{channel}"] = 1
+            dataset[target_anomaly_column] |= dataset[f"is_anomaly_{channel}"]
 
+        dataset.drop(columns=anomaly_columns, inplace=True)
+
+        labels_groups = dataset.groupby(
+            (dataset[target_anomaly_column].shift() != dataset[target_anomaly_column]).cumsum())
+        start_end_points = [
+            (group[0], group[-1])
+            for group in labels_groups.groups.values()
+            if dataset.loc[group[0], target_anomaly_column] == 0
+        ]
+        dataset.drop(columns=[target_anomaly_column], inplace=True)  # at this point label columns are no longer needed
+
+        # Binary channel has only two unique integer values
+        binary_channels_mask = [
+            np.sum(dataset.values[..., i].astype(np.int64) - dataset.values[..., i]) == 0 and
+            len(np.unique(dataset.values[..., i])) == 2
+            for i in range(dataset.values.shape[-1])
+        ]
+        channels_minimums = np.min(dataset.values, axis=0)
+        channels_maximums = np.max(dataset.values, axis=0)
+
+        validation_date_split = self._validate_date_split(dataset)
+
+        if validation_date_split is None:
+            dataset = np.array([dataset.loc[start:end].values for start, end in start_end_points], dtype=object)
         else:
-            dataset = np.expand_dims(dataset.values[:, :-len(all_used_anomaly_columns)], axis=0).astype(np.float32)
-            binary_channels_mask = None
-            channels_minimums = None
-            channels_maximums = None
+            train_data, val_data = [], []
+            for start_date, end_date in start_end_points:
+                if end_date < validation_date_split:
+                    train_data.append(dataset[start_date:end_date].values)
+                elif start_date > validation_date_split:
+                    val_data.append(dataset[start_date:end_date].values)
+                else:
+                    train_data.append(dataset[start_date:validation_date_split].values)
+                    val_data.append(dataset[validation_date_split:end_date].values)
+            dataset = [np.array(train_data), np.array(val_data)]
 
         return dataset, binary_channels_mask, channels_minimums, channels_maximums
+
+    def _validate_date_split(self, dataset):
+        validation_date_split = self.customParameters.validation_date_split
+        if validation_date_split is not None:
+            try:
+                validation_date_split = parse_date(validation_date_split)
+                if validation_date_split < dataset.index[0] or validation_date_split > dataset.index[-1]:
+                    print(
+                        f"Cannot use validation_date_split '{validation_date_split}' because it is outside the data range")
+                    return None
+            except Exception:
+                print(f"Cannot use validation_date_split '{validation_date_split}' because timestamp is not datetime")
+                return None
+        return validation_date_split
 
     @property
     def ts_for_alpha_selection(self):
