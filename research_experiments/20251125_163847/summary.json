@@ -1,0 +1,92 @@
+{
+  "experiment_info": {
+    "timestamp": "20251125_163847",
+    "num_channels": 6,
+    "has_cross_channel": true,
+    "config_info": {
+      "config_file": "config_01.yml",
+      "window_size": "30min",
+      "target_channels": [
+        "channel_41",
+        "channel_42",
+        "channel_43",
+        "channel_44",
+        "channel_45",
+        "channel_46"
+      ],
+      "train_period": "2000-01-01 00:00:00 to 2006-12-31 23:59:59.999999",
+      "test_period": "2007-01-01 00:00:00 to 2013-12-31 23:59:59.999999",
+      "tuning_enabled": true,
+      "timing_results": {
+        "total_training_time_seconds": 24630.95,
+        "total_inference_time_seconds": 10893.46,
+        "total_execution_time_seconds": 35537.58
+      }
+    }
+  },
+  "summary_metrics": {
+    "channel_41": {
+      "precision": 0.9741108927023201,
+      "recall": 0.6,
+      "f05": 0.866104514948668,
+      "tp_e": 39,
+      "fp_e": 1,
+      "fn_e": 26,
+      "type": "channel_ensemble"
+    },
+    "channel_42": {
+      "precision": 0.9993140157058558,
+      "recall": 0.47619047619047616,
+      "f05": 0.8193033344082494,
+      "tp_e": 30,
+      "fp_e": 0,
+      "fn_e": 33,
+      "type": "channel_ensemble"
+    },
+    "channel_43": {
+      "precision": 0.970625765455981,
+      "recall": 0.53125,
+      "f05": 0.8328605861415167,
+      "tp_e": 34,
+      "fp_e": 1,
+      "fn_e": 30,
+      "type": "channel_ensemble"
+    },
+    "channel_44": {
+      "precision": 0.9992354459674473,
+      "recall": 0.5079365079365079,
+      "f05": 0.8372670152606311,
+      "tp_e": 32,
+      "fp_e": 0,
+      "fn_e": 31,
+      "type": "channel_ensemble"
+    },
+    "channel_45": {
+      "precision": 0.9990476355794577,
+      "recall": 0.5625,
+      "f05": 0.8648138747790634,
+      "tp_e": 36,
+      "fp_e": 0,
+      "fn_e": 28,
+      "type": "channel_ensemble"
+    },
+    "channel_46": {
+      "precision": 0.9689989938873289,
+      "recall": 0.5161290322580645,
+      "f05": 0.8243382556351981,
+      "tp_e": 32,
+      "fp_e": 1,
+      "fn_e": 30,
+      "type": "channel_ensemble"
+    },
+    "cross_channel": {
+      "precision": 0.9994050517226617,
+      "recall": 0.6615384615384615,
+      "f05": 0.9067812355952948,
+      "tp_e": 43,
+      "fp_e": 0,
+      "fn_e": 22,
+      "type": "cross_channel"
+    }
+  }
+}

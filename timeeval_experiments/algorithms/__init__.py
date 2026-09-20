@@ -84,3 +84,4 @@ from .torsk import torsk
 from .triple_es import triple_es
 from .ts_bitmap import ts_bitmap
 from .valmod import valmod
+from .test_simple import test_simple

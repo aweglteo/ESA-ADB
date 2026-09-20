@@ -77,7 +77,7 @@ class Model:
                                verbose=1,
                                save_best_only=True,
                                save_weights_only=False,
-                               period=1)
+                               save_freq='epoch')
                ]
 
         self.model = Sequential()
@@ -103,7 +103,7 @@ class Model:
                            optimizer=self.config.optimizer)
         self.model.summary()
 
-        self.max_steps_per_epoch = 1000 # this is to prevent very long epochs for very large datasets
+        self.max_steps_per_epoch = 200 # reduced from 1000 for faster training
         self.model.fit(channel.generator_train,
                        steps_per_epoch=min(self.max_steps_per_epoch, len(channel.generator_train)),
                        epochs=self.config.epochs,

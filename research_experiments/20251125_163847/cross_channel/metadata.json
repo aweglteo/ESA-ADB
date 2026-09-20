@@ -1,0 +1,16 @@
+{
+  "type": "cross_channel",
+  "logic": "OR",
+  "num_source_channels": 6,
+  "timestamp": "20251125_163847",
+  "source_channels": [
+    "channel_41",
+    "channel_42",
+    "channel_43",
+    "channel_44",
+    "channel_45",
+    "channel_46"
+  ],
+  "config_file": "config_01.yml",
+  "window_size": "30min"
+}

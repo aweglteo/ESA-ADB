@@ -1,0 +1,14 @@
+{
+  "channel": "channel_41",
+  "ensemble_formula": "upper or lower or max",
+  "timestamp": "20251125_163847",
+  "models_available": [
+    "upper_results",
+    "lower_results",
+    "max_results"
+  ],
+  "config_file": "config_01.yml",
+  "window_size": "30min",
+  "train_period": "2000-01-01 00:00:00 to 2006-12-31 23:59:59.999999",
+  "test_period": "2007-01-01 00:00:00 to 2013-12-31 23:59:59.999999"
+}

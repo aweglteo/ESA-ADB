@@ -367,7 +367,7 @@ class TimeEval:
             new_row.update(result)
         elif result is None and future_result is not None:
             new_row.update({"future_result": future_result})
-        self.results = self.results.append(new_row, ignore_index=True)
+        self.results = self.results._append(new_row, ignore_index=True)
         self.results.replace(to_replace=[None], value=np.nan, inplace=True)
 
     def _resolve_future_results(self) -> None:

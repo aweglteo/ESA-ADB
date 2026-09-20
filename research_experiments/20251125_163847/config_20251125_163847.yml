@@ -1,0 +1,57 @@
+channels:
+- channel_41:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 5.5
+    max_threshold:
+      best_threshold: 0.8300000000000001
+    upper_gpr:
+      best_thres_sigma: 5.2
+- channel_42:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 4.5
+    max_threshold:
+      best_threshold: 0.8300000000000001
+    upper_gpr:
+      best_thres_sigma: 4.2
+- channel_43:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 5.9
+    max_threshold:
+      best_threshold: 0.79
+    upper_gpr:
+      best_thres_sigma: 5.5
+- channel_44:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 4.4
+    max_threshold:
+      best_threshold: 0.8200000000000001
+    upper_gpr:
+      best_thres_sigma: 4.6
+- channel_45:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 5.3
+    max_threshold:
+      best_threshold: 0.8300000000000001
+    upper_gpr:
+      best_thres_sigma: 4.8
+- channel_46:
+    ensemble_formula: upper or lower or max
+    lower_gpr:
+      best_thres_sigma: 4.3
+    max_threshold:
+      best_threshold: 0.8200000000000001
+    upper_gpr:
+      best_thres_sigma: 4.3
+test_period:
+  end: 2013-12-31 23:59:59
+  start: 2007-01-01
+train_period:
+  end: 2006-12-31 23:59:59
+  start: 2000-01-01
+tuning_hyperparameters: true
+window_size: 30min
